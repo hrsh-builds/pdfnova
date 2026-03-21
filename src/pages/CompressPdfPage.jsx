@@ -22,7 +22,7 @@ export default function CompressPdfPage() {
       formData.append("file", file);
       formData.append("level", level);
 
-      const res = await fetch("http://localhost:5000/api/compress-pdf", {
+      const res = await fetch("https://pdfnova-backend.onrender.com/api/compress-pdf", {
         method: "POST",
         body: formData,
       });

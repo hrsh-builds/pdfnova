@@ -29,7 +29,7 @@ export default function ProtectPdfPage() {
       formData.append("userPassword", userPassword);
       formData.append("ownerPassword", ownerPassword);
 
-      const res = await fetch("http://localhost:5000/api/protect-pdf", {
+      const res = await fetch("https://pdfnova-backend.onrender.com/api/protect-pdf", {
         method: "POST",
         body: formData,
       });

@@ -20,7 +20,7 @@ export default function PdfToWordPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("http://localhost:5000/api/pdf-to-word", {
+      const res = await fetch("https://pdfnova-backend.onrender.com/api/pdf-to-word", {
         method: "POST",
         body: formData,
       });
