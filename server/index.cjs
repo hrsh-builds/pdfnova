@@ -7,7 +7,14 @@ const { execFile } = require("child_process");
 
 const app = express();
 
-app.use(cors({ origin: "http://localhost:5173" }));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://pdfnova.vercel.app",
+    ],
+  })
+);
 app.use(express.json());
 
 const uploadDir = path.resolve(__dirname, "uploads");
