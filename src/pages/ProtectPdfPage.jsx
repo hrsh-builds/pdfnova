@@ -1,6 +1,7 @@
 import { useState } from "react";
 import DropZone from "../components/DropZone";
 import { FileText, Lock } from "lucide-react";
+import { API_URL } from "../../vite.config";
 
 export default function ProtectPdfPage() {
   const [file, setFile] = useState(null);
@@ -29,10 +30,10 @@ export default function ProtectPdfPage() {
       formData.append("userPassword", userPassword);
       formData.append("ownerPassword", ownerPassword);
 
-      const res = await fetch("https://pdfnova-backend.onrender.com/api/protect-pdf", {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch(`${API_URL}/api/protect-pdf`, {
+  method: "POST",
+  body: formData,
+});
 
       if (!res.ok) {
         const errorText = await res.text();

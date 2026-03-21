@@ -5,3 +5,4 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
 })
+export const API_URL = "https://pdfnova-backend.onrender.com";

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FileArchive } from "lucide-react";
 import DropZone from "../components/DropZone";
+import { API_URL } from "../../vite.config";
 
 export default function CompressPdfPage() {
   const [file, setFile] = useState(null);
@@ -22,10 +23,10 @@ export default function CompressPdfPage() {
       formData.append("file", file);
       formData.append("level", level);
 
-      const res = await fetch("https://pdfnova-backend.onrender.com/api/compress-pdf", {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch(`${API_URL}/api/compress-pdf`, {
+  method: "POST",
+  body: formData,
+});
 
       if (!res.ok) {
         const errorText = await res.text();

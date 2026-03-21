@@ -16,6 +16,12 @@ app.use(
   })
 );
 app.use(express.json());
+app.get("/", (req, res) => {
+  res.send("PDFNova backend is running");
+});
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, message: "API is working" });
+});
 
 const uploadDir = path.resolve(__dirname, "uploads");
 const outputDir = path.resolve(__dirname, "outputs");

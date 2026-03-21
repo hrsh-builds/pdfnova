@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FileText } from "lucide-react";
 import DropZone from "../components/DropZone";
+import { API_URL } from "../../vite.config";
 
 export default function PdfToWordPage() {
   const [file, setFile] = useState(null);
@@ -20,10 +21,10 @@ export default function PdfToWordPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("https://pdfnova-backend.onrender.com/api/pdf-to-word", {
-        method: "POST",
-        body: formData,
-      });
+     const res = await fetch(`${API_URL}/api/pdf-to-word`, {
+  method: "POST",
+  body: formData,
+});
 
       if (!res.ok) {
         const errorText = await res.text();
