@@ -7,18 +7,20 @@ const { execFile } = require("child_process");
 
 const app = express();
 
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "https://pdfnova.vercel.app",
-    ],
-  })
-);
+app.post("/api/test-upload", upload.single("file"), (req, res) => {
+  res.json({
+    ok: true,
+    filename: req.file ? req.file.originalname : null,
+  });
+});
+
+app.use(cors({ origin: "*" }));
 app.use(express.json());
+
 app.get("/", (req, res) => {
   res.send("PDFNova backend is running");
 });
+
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, message: "API is working" });
 });
