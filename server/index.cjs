@@ -47,18 +47,14 @@ function cleanupFiles(files = []) {
 
 // 🔍 find qpdf
 function getQpdfPath() {
-  const paths = ["/usr/bin/qpdf", "/bin/qpdf", "/usr/local/bin/qpdf"];
-
-  for (const p of paths) {
-    if (fs.existsSync(p)) return p;
-  }
-
   try {
-    const found = execSync("which qpdf", { encoding: "utf8" }).trim();
-    if (found) return found;
-  } catch (e) {}
-
-  return null;
+    const result = execSync("which qpdf", { encoding: "utf8" }).trim();
+    console.log("QPDF FOUND AT:", result);
+    return result;
+  } catch (err) {
+    console.error("QPDF DETECTION FAILED");
+    return null;
+  }
 }
 
 // ================= ROUTES =================
@@ -99,10 +95,12 @@ app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
 
     const qpdf = getQpdfPath();
 
-    if (!qpdf) {
-      cleanupFiles([inputPath]);
-      return res.status(500).send("qpdf not installed on server");
-    }
+   if (!qpdf) {
+  console.error("QPDF NOT FOUND");
+  cleanupFiles([inputPath]);
+  return res.status(500).send("Internal error: qpdf not detected");
+}
+  
 
     const args = [
       "--encrypt",
@@ -114,7 +112,7 @@ app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
       outputPath,
     ];
 
-    console.log("QPDF PATH:", qpdf);
+    console.log("Using QPDF PATH:", qpdf);
 
     execFile(qpdf, args, (error, stdout, stderr) => {
       console.log("STDOUT:", stdout);
