@@ -21,10 +21,10 @@ export default function PdfToWordPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-     const res = await fetch(`${API_URL}/api/pdf-to-word`, {
-  method: "POST",
-  body: formData,
-});
+      const res = await fetch(`${API_URL}/api/pdf-to-word`, {
+        method: "POST",
+        body: formData,
+      });
 
       if (!res.ok) {
         const errorText = await res.text();
@@ -37,7 +37,9 @@ export default function PdfToWordPage() {
       const a = document.createElement("a");
       a.href = url;
       a.download = "converted.docx";
+      document.body.appendChild(a);
       a.click();
+      a.remove();
 
       window.URL.revokeObjectURL(url);
       setMessage("Download started successfully.");
@@ -49,17 +51,24 @@ export default function PdfToWordPage() {
     }
   };
 
+  const handleReset = () => {
+    setFile(null);
+    setMessage("");
+  };
+
   return (
-    <section className="px-6 py-20">
+    <section className="px-3 py-8 sm:px-4 md:px-6 md:py-14">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-10 text-center">
-          <h2 className="text-3xl font-bold md:text-4xl">PDF to Word</h2>
-          <p className="mt-3 text-white/65">
+        <div className="mb-8 text-center md:mb-10">
+          <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl">
+            PDF to Word
+          </h2>
+          <p className="mt-3 text-sm text-white/65 sm:text-base">
             Upload a PDF file and convert it into an editable Word document.
           </p>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-xl sm:p-6 md:p-8">
           <DropZone
             title="Drop PDF file here"
             subtitle="Drag & drop one PDF file or click below"
@@ -82,14 +91,14 @@ export default function PdfToWordPage() {
           />
 
           {file && (
-            <div className="mt-8 rounded-2xl border border-white/10 bg-black/20 p-5">
+            <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
               <div className="flex items-center gap-3">
                 <div className="rounded-xl bg-cyan-500/10 p-2">
                   <FileText className="h-5 w-5 text-cyan-400" />
                 </div>
 
-                <div>
-                  <p className="text-sm font-medium text-white/90">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-white/90 sm:text-base">
                     {file.name}
                   </p>
                   <p className="text-xs text-white/50">
@@ -98,18 +107,28 @@ export default function PdfToWordPage() {
                 </div>
               </div>
 
-              <button
-                onClick={handleConvert}
-                disabled={loading}
-                className="mt-6 rounded-full bg-cyan-500 px-6 py-3 font-semibold text-black hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loading ? "Converting..." : "Convert and Download"}
-              </button>
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <button
+                  onClick={handleConvert}
+                  disabled={loading}
+                  className="w-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-3 font-semibold text-black hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                >
+                  {loading ? "Converting..." : "Convert and Download"}
+                </button>
+
+                <button
+                  onClick={handleReset}
+                  disabled={loading}
+                  className="w-full rounded-full border border-white/10 px-5 py-3 font-semibold text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                >
+                  Reset
+                </button>
+              </div>
             </div>
           )}
 
           {message && (
-            <p className="mt-6 text-sm text-cyan-300">{message}</p>
+            <p className="mt-6 text-center text-sm text-cyan-300">{message}</p>
           )}
         </div>
       </div>
