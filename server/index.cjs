@@ -75,71 +75,10 @@ app.get("/api/qpdf-check", (req, res) => {
 
 // ================= PROTECT PDF =================
 app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).send("No file uploaded");
-    }
-
-    const { userPassword, ownerPassword } = req.body;
-
-    if (!userPassword || !ownerPassword) {
-      cleanupFiles([req.file.path]);
-      return res.status(400).send("Passwords required");
-    }
-
-    const inputPath = path.resolve(req.file.path);
-    const outputPath = path.resolve(
-      outputDir,
-      "protected-" + req.file.filename
-    );
-
-    const qpdf = getQpdfPath();
-
-   if (!qpdf) {
-  console.error("QPDF NOT FOUND");
-  cleanupFiles([inputPath]);
-  return res.status(500).send("Internal error: qpdf not detected");
-}
-  
-
-    const args = [
-      "--encrypt",
-      userPassword,
-      ownerPassword,
-      "256",
-      "--",
-      inputPath,
-      outputPath,
-    ];
-
-    console.log("Using QPDF PATH:", qpdf);
-
-    execFile(qpdf, args, (error, stdout, stderr) => {
-      console.log("STDOUT:", stdout);
-      console.log("STDERR:", stderr);
-
-      if (error) {
-        console.error("QPDF ERROR:", error);
-        cleanupFiles([inputPath, outputPath]);
-        return res.status(500).send(stderr || "Protect failed");
-      }
-
-      if (!fs.existsSync(outputPath)) {
-        cleanupFiles([inputPath, outputPath]);
-        return res.status(500).send("Output not created");
-      }
-
-      res.download(outputPath, "protected.pdf", (err) => {
-        if (err) console.error("Download error:", err);
-        cleanupFiles([inputPath, outputPath]);
-      });
-    });
-  } catch (err) {
-    console.error("SERVER ERROR:", err);
-    res.status(500).send("Server error");
-  }
+  return res
+    .status(503)
+    .send("Protect PDF is temporarily unavailable while encryption is being upgraded.");
 });
-
 // ==============================================
 
 app.listen(PORT, () => {
