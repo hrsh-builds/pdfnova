@@ -216,6 +216,10 @@ app.post("/api/compress-pdf", upload.single("file"), (req, res) => {
   PROTECT PDF
   Requires qpdf installed and added to PATH
 */
+/*
+  PROTECT PDF
+  Requires qpdf installed and added to PATH
+*/
 app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
   try {
     if (!req.file) {
@@ -244,7 +248,9 @@ app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
       outputPath,
     ];
 
-    execFile("qpdf", args, { windowsHide: true }, (error, stdout, stderr) => {
+    const qpdfPath = process.platform === "win32" ? "qpdf" : "/usr/bin/qpdf";
+
+    execFile(qpdfPath, args, { windowsHide: true }, (error, stdout, stderr) => {
       console.log("QPDF STDOUT:", stdout);
       console.log("QPDF STDERR:", stderr);
 
