@@ -244,15 +244,16 @@ app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
       outputPath,
     ];
 
-    runCommand("qpdf", args, (error, stdout, stderr) => {
+    execFile("qpdf", args, { windowsHide: true }, (error, stdout, stderr) => {
+      console.log("QPDF STDOUT:", stdout);
+      console.log("QPDF STDERR:", stderr);
+
       if (error) {
         console.error("QPDF ERROR:", error);
-        console.error("STDOUT:", stdout);
-        console.error("STDERR:", stderr);
         cleanupFiles([inputPath, outputPath]);
-        return res
-          .status(500)
-          .send("Protect PDF failed. Make sure qpdf is installed.");
+        return res.status(500).send(
+          stderr || error.message || "Protect PDF failed."
+        );
       }
 
       if (!fs.existsSync(outputPath)) {
