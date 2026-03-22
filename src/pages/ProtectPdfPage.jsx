@@ -163,10 +163,6 @@ export default function ProtectPdfPage() {
                   Reset
                 </button>
               </div>
-
-              <p className="mt-4 text-center text-xs text-white/45">
-                First request may take a few seconds if the server is waking up.
-              </p>
             </div>
           )}
 
