@@ -6,25 +6,13 @@ const fs = require("fs");
 const { execFile } = require("child_process");
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-app.post("/api/test-upload", upload.single("file"), (req, res) => {
-  res.json({
-    ok: true,
-    filename: req.file ? req.file.originalname : null,
-  });
-});
-
+// ---------- middleware ----------
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("PDFNova backend is running");
-});
-
-app.get("/api/health", (req, res) => {
-  res.json({ ok: true, message: "API is working" });
-});
-
+// ---------- folders ----------
 const uploadDir = path.resolve(__dirname, "uploads");
 const outputDir = path.resolve(__dirname, "outputs");
 
@@ -42,6 +30,7 @@ function ensureDir(dirPath) {
 ensureDir(uploadDir);
 ensureDir(outputDir);
 
+// ---------- upload ----------
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
@@ -49,6 +38,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+// ---------- helpers ----------
 function cleanupFiles(files = []) {
   setTimeout(() => {
     try {
@@ -63,14 +53,59 @@ function cleanupFiles(files = []) {
   }, 3000);
 }
 
+function runCommand(command, args, callback) {
+  execFile(command, args, { windowsHide: true }, callback);
+}
+
+function runPython(args, callback) {
+  const commands =
+    process.platform === "win32"
+      ? ["py", "python"]
+      : ["python3", "python"];
+
+  let index = 0;
+
+  function tryNext(lastError = null) {
+    if (index >= commands.length) {
+      return callback(lastError || new Error("Python not found"), "", "");
+    }
+
+    const cmd = commands[index++];
+    execFile(cmd, args, { windowsHide: true }, (error, stdout, stderr) => {
+      if (error) {
+        return tryNext(error);
+      }
+      callback(null, stdout, stderr);
+    });
+  }
+
+  tryNext();
+}
+
+// ---------- basic routes ----------
 app.get("/", (req, res) => {
-  res.send("Backend is running");
+  res.send("PDFNova backend is running");
+});
+
+app.get("/api/health", (req, res) => {
+  res.json({
+    ok: true,
+    message: "API is working",
+  });
+});
+
+app.post("/api/test-upload", upload.single("file"), (req, res) => {
+  res.json({
+    ok: true,
+    filename: req.file ? req.file.originalname : null,
+    savedAs: req.file ? req.file.filename : null,
+  });
 });
 
 /*
   PDF TO WORD
   Requires:
-  - py -m pip install pdf2docx
+  - pdf2docx installed in Python
   - server/convert_pdf_to_word.py
 */
 app.post("/api/pdf-to-word", upload.single("file"), (req, res) => {
@@ -86,30 +121,29 @@ app.post("/api/pdf-to-word", upload.single("file"), (req, res) => {
     );
     const scriptPath = path.resolve(__dirname, "convert_pdf_to_word.py");
 
-    execFile(
-      "py",
-      [scriptPath, inputPath, outputPath],
-      { windowsHide: true },
-      (error, stdout, stderr) => {
-        if (error) {
-          console.error("PDF TO WORD ERROR:", error);
-          console.error("STDOUT:", stdout);
-          console.error("STDERR:", stderr);
-          return res.status(500).send(stderr || stdout || error.message);
-        }
-
-        if (!fs.existsSync(outputPath)) {
-          return res.status(500).send("DOCX file was not created.");
-        }
-
-        res.download(outputPath, "converted.docx", (downloadErr) => {
-          if (downloadErr) {
-            console.error("DOWNLOAD ERROR:", downloadErr);
-          }
-          cleanupFiles([inputPath, outputPath]);
-        });
+    runPython([scriptPath, inputPath, outputPath], (error, stdout, stderr) => {
+      if (error) {
+        console.error("PDF TO WORD ERROR:", error);
+        console.error("STDOUT:", stdout);
+        console.error("STDERR:", stderr);
+        cleanupFiles([inputPath, outputPath]);
+        return res.status(500).send(
+          stderr || stdout || "Failed to convert PDF to Word."
+        );
       }
-    );
+
+      if (!fs.existsSync(outputPath)) {
+        cleanupFiles([inputPath, outputPath]);
+        return res.status(500).send("DOCX file was not created.");
+      }
+
+      res.download(outputPath, "converted.docx", (downloadErr) => {
+        if (downloadErr) {
+          console.error("DOWNLOAD ERROR:", downloadErr);
+        }
+        cleanupFiles([inputPath, outputPath]);
+      });
+    });
   } catch (err) {
     console.error("SERVER ERROR:", err);
     res.status(500).send(err.message || "Server error");
@@ -119,7 +153,6 @@ app.post("/api/pdf-to-word", upload.single("file"), (req, res) => {
 /*
   COMPRESS PDF
   Requires Ghostscript installed and added to PATH
-  Windows command: gswin64c
 */
 app.post("/api/compress-pdf", upload.single("file"), (req, res) => {
   try {
@@ -128,10 +161,7 @@ app.post("/api/compress-pdf", upload.single("file"), (req, res) => {
     }
 
     const inputPath = path.resolve(req.file.path);
-    const outputPath = path.resolve(
-      outputDir,
-      `compressed-${req.file.filename}`
-    );
+    const outputPath = path.resolve(outputDir, `compressed-${req.file.filename}`);
 
     const level = req.body.level || "screen";
     const allowedLevels = ["screen", "ebook", "printer"];
@@ -153,17 +183,19 @@ app.post("/api/compress-pdf", upload.single("file"), (req, res) => {
       inputPath,
     ];
 
-    execFile(gsCommand, args, { windowsHide: true }, (error, stdout, stderr) => {
+    runCommand(gsCommand, args, (error, stdout, stderr) => {
       if (error) {
         console.error("COMPRESS ERROR:", error);
         console.error("STDOUT:", stdout);
         console.error("STDERR:", stderr);
+        cleanupFiles([inputPath, outputPath]);
         return res
           .status(500)
-          .send("Compression failed. Install Ghostscript and add it to PATH.");
+          .send("Compression failed. Make sure Ghostscript is installed.");
       }
 
       if (!fs.existsSync(outputPath)) {
+        cleanupFiles([inputPath, outputPath]);
         return res.status(500).send("Compressed PDF was not created.");
       }
 
@@ -182,8 +214,7 @@ app.post("/api/compress-pdf", upload.single("file"), (req, res) => {
 
 /*
   PROTECT PDF
-  Current route connection is ready.
-  Real encryption logic is NOT added in this version.
+  Requires qpdf installed and added to PATH
 */
 app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
   try {
@@ -194,18 +225,14 @@ app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
     const { userPassword, ownerPassword } = req.body;
 
     if (!userPassword || !ownerPassword) {
+      cleanupFiles([req.file.path]);
       return res
         .status(400)
         .send("User password and owner password are required.");
     }
 
     const inputPath = path.resolve(req.file.path);
-    const outputPath = path.resolve(
-      outputDir,
-      `protected-${req.file.filename}`
-    );
-
-    const qpdfCommand = process.platform === "win32" ? "qpdf" : "qpdf";
+    const outputPath = path.resolve(outputDir, `protected-${req.file.filename}`);
 
     const args = [
       "--encrypt",
@@ -217,23 +244,19 @@ app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
       outputPath,
     ];
 
-    console.log("PROTECT INPUT:", inputPath);
-    console.log("PROTECT OUTPUT:", outputPath);
-
-    execFile(qpdfCommand, args, { windowsHide: true }, (error, stdout, stderr) => {
-      console.log("QPDF STDOUT:", stdout);
-      console.log("QPDF STDERR:", stderr);
-
+    runCommand("qpdf", args, (error, stdout, stderr) => {
       if (error) {
         console.error("QPDF ERROR:", error);
+        console.error("STDOUT:", stdout);
+        console.error("STDERR:", stderr);
+        cleanupFiles([inputPath, outputPath]);
         return res
           .status(500)
-          .send(
-            "Protect PDF failed. Make sure qpdf is installed and added to PATH."
-          );
+          .send("Protect PDF failed. Make sure qpdf is installed.");
       }
 
       if (!fs.existsSync(outputPath)) {
+        cleanupFiles([inputPath, outputPath]);
         return res.status(500).send("Protected PDF was not created.");
       }
 
@@ -250,8 +273,7 @@ app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
   }
 });
 
-const PORT = 5000;
-
+// ---------- start ----------
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
