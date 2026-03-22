@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { FileText, Lock } from "lucide-react";
+import { FileText } from "lucide-react";
 import DropZone from "../components/DropZone";
-import { API_URL } from "../../vite.config";
+import { API_URL } from "../config";
 
 export default function ProtectPdfPage() {
   const [file, setFile] = useState(null);
@@ -23,7 +23,7 @@ export default function ProtectPdfPage() {
 
     try {
       setLoading(true);
-      setMessage("Protecting PDF...");
+      setMessage("Protecting PDF... please wait.");
 
       const formData = new FormData();
       formData.append("file", file);
@@ -68,7 +68,7 @@ export default function ProtectPdfPage() {
   };
 
   return (
-    <section className="px-3 py-8 sm:px-4 md:px-6 md:py-14 text-white">
+    <section className="px-3 py-8 text-white sm:px-4 md:px-6 md:py-14">
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 text-center md:mb-10">
           <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl">
@@ -163,6 +163,10 @@ export default function ProtectPdfPage() {
                   Reset
                 </button>
               </div>
+
+              <p className="mt-4 text-center text-xs text-white/45">
+                First request may take a few seconds if the server is waking up.
+              </p>
             </div>
           )}
 
