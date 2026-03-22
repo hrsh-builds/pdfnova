@@ -3,7 +3,7 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const { execFile } = require("child_process");
+const { execFile, execSync } = require("child_process");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -215,11 +215,47 @@ app.post("/api/compress-pdf", upload.single("file"), (req, res) => {
 /*
   PROTECT PDF
   Requires qpdf installed and added to PATH
-*/
 /*
   PROTECT PDF
-  Requires qpdf installed and added to PATH
+  Requires qpdf installed on server
 */
+
+const { execFile, execSync } = require("child_process");
+
+function resolveQpdfPath() {
+  const fixedPaths = ["/usr/bin/qpdf", "/bin/qpdf", "/usr/local/bin/qpdf"];
+
+  for (const p of fixedPaths) {
+    if (fs.existsSync(p)) {
+      return p;
+    }
+  }
+
+  try {
+    const found = execSync("command -v qpdf || which qpdf", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+
+    if (found) {
+      return found;
+    }
+  } catch (err) {
+    console.error("QPDF PATH CHECK ERROR:", err.message);
+  }
+
+  return null;
+}
+
+app.get("/api/qpdf-check", (req, res) => {
+  const qpdfPath = resolveQpdfPath();
+
+  res.json({
+    ok: !!qpdfPath,
+    qpdfPath: qpdfPath || null,
+  });
+});
+
 app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
   try {
     if (!req.file) {
@@ -236,7 +272,17 @@ app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
     }
 
     const inputPath = path.resolve(req.file.path);
-    const outputPath = path.resolve(outputDir, `protected-${req.file.filename}`);
+    const outputPath = path.resolve(
+      outputDir,
+      `protected-${req.file.filename}`
+    );
+
+    const qpdfPath = resolveQpdfPath();
+
+    if (!qpdfPath) {
+      cleanupFiles([inputPath]);
+      return res.status(500).send("qpdf not found on server.");
+    }
 
     const args = [
       "--encrypt",
@@ -248,7 +294,9 @@ app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
       outputPath,
     ];
 
-    const qpdfPath = process.platform === "win32" ? "qpdf" : "/usr/bin/qpdf";
+    console.log("USING QPDF PATH:", qpdfPath);
+    console.log("INPUT PATH:", inputPath);
+    console.log("OUTPUT PATH:", outputPath);
 
     execFile(qpdfPath, args, { windowsHide: true }, (error, stdout, stderr) => {
       console.log("QPDF STDOUT:", stdout);
@@ -279,7 +327,6 @@ app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
     res.status(500).send(err.message || "Failed to protect PDF.");
   }
 });
-
 // ---------- start ----------
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
