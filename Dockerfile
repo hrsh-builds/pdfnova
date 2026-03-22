@@ -1,23 +1,19 @@
-FROM node:20-bullseye
+FROM node:18
 
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    qpdf \
-    ghostscript \
-    && rm -rf /var/lib/apt/lists/*
+# Install qpdf
+RUN apt-get update && apt-get install -y qpdf
 
+# Set working directory
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
-
-COPY server/requirements.txt ./server/requirements.txt
-RUN pip3 install -r ./server/requirements.txt
-
+# Copy files
 COPY . .
 
-ENV PORT=10000
+# Install Node deps
+RUN npm install
+
+# Expose port
 EXPOSE 10000
 
+# Start server
 CMD ["node", "server/index.cjs"]
