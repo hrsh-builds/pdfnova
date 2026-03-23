@@ -74,55 +74,10 @@ app.get("/api/qpdf-check", (req, res) => {
 });
 
 // ================= PROTECT PDF =================
-app.post("/api/protect-pdf", upload.single("file"), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).send("No file uploaded.");
-    }
-
-    const { userPassword, ownerPassword } = req.body;
-
-    if (!userPassword || !ownerPassword) {
-      cleanupFiles([req.file.path]);
-      return res
-        .status(400)
-        .send("User password and owner password are required.");
-    }
-
-    const inputPath = path.resolve(req.file.path);
-    const outputPath = path.resolve(
-      outputDir,
-      `protected-${req.file.filename}`
-    );
-
-    const existingPdfBytes = fs.readFileSync(inputPath);
-    const pdfDoc = await PDFDocument.load(existingPdfBytes);
-
-    const pdfBytes = await pdfDoc.save({
-      useObjectStreams: false,
-      addDefaultPage: false,
-      updateFieldAppearances: false,
-      userPassword,
-      ownerPassword,
-    });
-
-    fs.writeFileSync(outputPath, pdfBytes);
-
-    if (!fs.existsSync(outputPath)) {
-      cleanupFiles([inputPath, outputPath]);
-      return res.status(500).send("Protected PDF was not created.");
-    }
-
-    res.download(outputPath, "protected.pdf", (downloadErr) => {
-      if (downloadErr) {
-        console.error("DOWNLOAD ERROR:", downloadErr);
-      }
-      cleanupFiles([inputPath, outputPath]);
-    });
-  } catch (err) {
-    console.error("PROTECT PDF ERROR:", err);
-    res.status(500).send(err.message || "Failed to protect PDF.");
-  }
+app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
+  return res
+    .status(503)
+    .send("Protect PDF is coming soon.");
 });
 // ==============================================
 
