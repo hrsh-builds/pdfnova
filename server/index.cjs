@@ -98,48 +98,48 @@ app.post("/api/pdf-to-word", upload.single("file"), (req, res) => {
     }
 
     const inputPath = path.resolve(req.file.path);
-    const outputPath = path.resolve(
-      outputDir,
-      `${path.parse(req.file.filename).name}.docx`
-    );
-    const scriptPath = path.resolve(__dirname, "convert_pdf_to_word.py");
 
-    console.log("PDF TO WORD INPUT:", inputPath);
-    console.log("PDF TO WORD OUTPUT:", outputPath);
-    console.log("SCRIPT PATH:", scriptPath);
+    const outputDirPath = path.resolve(outputDir);
 
-    execFile(
-      "python3",
-      [scriptPath, inputPath, outputPath],
-      { windowsHide: true },
-      (error, stdout, stderr) => {
-        console.log("PYTHON STDOUT:", stdout);
-        console.log("PYTHON STDERR:", stderr);
+    const command =
+      process.platform === "win32" ? "soffice" : "libreoffice";
 
-        if (error) {
-          console.error("PDF TO WORD ERROR:", error);
-          cleanupFiles([inputPath, outputPath]);
-          return res
-            .status(500)
-            .send(stderr || stdout || error.message || "Failed to convert PDF to Word.");
-        }
+    const args = [
+      "--headless",
+      "--convert-to",
+      "docx",
+      "--outdir",
+      outputDirPath,
+      inputPath,
+    ];
 
-        if (!fs.existsSync(outputPath)) {
-          cleanupFiles([inputPath, outputPath]);
-          return res.status(500).send("DOCX file was not created.");
-        }
+    execFile(command, args, (error, stdout, stderr) => {
+      console.log("STDOUT:", stdout);
+      console.log("STDERR:", stderr);
 
-        res.download(outputPath, "converted.docx", (downloadErr) => {
-          if (downloadErr) {
-            console.error("DOWNLOAD ERROR:", downloadErr);
-          }
-          cleanupFiles([inputPath, outputPath]);
-        });
+      if (error) {
+        console.error("CONVERSION ERROR:", error);
+        cleanupFiles([inputPath]);
+        return res.status(500).send("Conversion failed.");
       }
-    );
+
+      const outputFile = path.join(
+        outputDirPath,
+        `${path.parse(req.file.filename).name}.docx`
+      );
+
+      if (!fs.existsSync(outputFile)) {
+        cleanupFiles([inputPath]);
+        return res.status(500).send("DOCX not created.");
+      }
+
+      res.download(outputFile, "converted.docx", () => {
+        cleanupFiles([inputPath, outputFile]);
+      });
+    });
   } catch (err) {
     console.error("SERVER ERROR:", err);
-    return res.status(500).send(err.message || "Server error.");
+    return res.status(500).send("Server error.");
   }
 });
 
