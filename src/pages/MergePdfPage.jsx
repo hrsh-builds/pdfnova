@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FileText, Layers } from "lucide-react";
 import DropZone from "../components/DropZone";
-import { API_URL } from "../config";
+import { API_URL } from "../../vite.config";
 
 export default function MergePdfPage() {
   const [files, setFiles] = useState([]);
