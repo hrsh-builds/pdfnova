@@ -3,7 +3,7 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const { execFile } = require("child_process");
+const { execFile, execSync, spawn } = require("child_process");
 const { PDFDocument } = require("pdf-lib");
 
 const app = express();
@@ -49,28 +49,29 @@ function cleanupFiles(files = []) {
 }
 
 function runPython(args, callback) {
-  const commands =
-    process.platform === "win32"
-      ? ["py", "python"]
-      : ["python3", "python"];
+  const py = spawn("python3", args);
 
-  let index = 0;
+  let stdout = "";
+  let stderr = "";
 
-  function tryNext(lastError = null) {
-    if (index >= commands.length) {
-      return callback(lastError || new Error("Python not found"), "", "");
+  py.stdout.on("data", (data) => {
+    stdout += data.toString();
+  });
+
+  py.stderr.on("data", (data) => {
+    stderr += data.toString();
+  });
+
+  py.on("close", (code) => {
+    if (code !== 0) {
+      return callback(new Error(stderr || stdout || "Python conversion failed"), stdout, stderr);
     }
+    callback(null, stdout, stderr);
+  });
 
-    const cmd = commands[index++];
-    execFile(cmd, args, { windowsHide: true }, (error, stdout, stderr) => {
-      if (error) {
-        return tryNext(error);
-      }
-      callback(null, stdout, stderr);
-    });
-  }
-
-  tryNext();
+  py.on("error", (error) => {
+    callback(error, stdout, stderr);
+  });
 }
 
 // ================= BASIC ROUTES =================
@@ -98,43 +99,34 @@ app.post("/api/pdf-to-word", upload.single("file"), (req, res) => {
     }
 
     const inputPath = path.resolve(req.file.path);
+    const outputPath = path.resolve(
+      outputDir,
+      `${path.parse(req.file.filename).name}.docx`
+    );
+    const scriptPath = path.resolve(__dirname, "convert_pdf_to_word.py");
 
-    const outputDirPath = path.resolve(outputDir);
-
-    const command =
-      process.platform === "win32" ? "soffice" : "libreoffice";
-
-    const args = [
-      "--headless",
-      "--convert-to",
-      "docx",
-      "--outdir",
-      outputDirPath,
-      inputPath,
-    ];
-
-    execFile(command, args, (error, stdout, stderr) => {
-      console.log("STDOUT:", stdout);
-      console.log("STDERR:", stderr);
+    runPython([scriptPath, inputPath, outputPath], (error, stdout, stderr) => {
+      console.log("PYTHON STDOUT:", stdout);
+      console.log("PYTHON STDERR:", stderr);
 
       if (error) {
-        console.error("CONVERSION ERROR:", error);
-        cleanupFiles([inputPath]);
-        return res.status(500).send("Conversion failed.");
+        console.error("PDF TO WORD ERROR:", error);
+        cleanupFiles([inputPath, outputPath]);
+        return res
+          .status(500)
+          .send("This PDF cannot be converted. Try another file.");
       }
 
-      const outputFile = path.join(
-        outputDirPath,
-        `${path.parse(req.file.filename).name}.docx`
-      );
-
-      if (!fs.existsSync(outputFile)) {
-        cleanupFiles([inputPath]);
-        return res.status(500).send("DOCX not created.");
+      if (!fs.existsSync(outputPath)) {
+        cleanupFiles([inputPath, outputPath]);
+        return res.status(500).send("DOCX file was not created.");
       }
 
-      res.download(outputFile, "converted.docx", () => {
-        cleanupFiles([inputPath, outputFile]);
+      res.download(outputPath, "converted.docx", (downloadErr) => {
+        if (downloadErr) {
+          console.error("DOWNLOAD ERROR:", downloadErr);
+        }
+        cleanupFiles([inputPath, outputPath]);
       });
     });
   } catch (err) {

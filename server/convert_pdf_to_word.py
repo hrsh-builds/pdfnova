@@ -4,7 +4,7 @@ import os
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: python convert_pdf_to_word.py input.pdf output.docx")
+        print("Usage: python3 convert_pdf_to_word.py input.pdf output.docx")
         sys.exit(1)
 
     input_pdf = sys.argv[1]
@@ -14,13 +14,17 @@ def main():
         print("Input PDF not found")
         sys.exit(1)
 
-    cv = Converter(input_pdf)
+    cv = None
     try:
+        cv = Converter(input_pdf)
         cv.convert(output_docx, start=0, end=None)
+        print("SUCCESS")
+    except Exception as e:
+        print(f"ERROR: {str(e)}")
+        sys.exit(1)
     finally:
-        cv.close()
-
-    print("Conversion complete")
+        if cv:
+            cv.close()
 
 if __name__ == "__main__":
     main()
