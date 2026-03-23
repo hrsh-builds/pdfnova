@@ -3,7 +3,8 @@ const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const { execFile, execSync } = require("child_process");
+const { execFile } = require("child_process");
+const { PDFDocument } = require("pdf-lib");
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -72,40 +73,15 @@ function runPython(args, callback) {
   tryNext();
 }
 
-function getQpdfPath() {
-  const fixedPaths = ["/usr/bin/qpdf", "/bin/qpdf", "/usr/local/bin/qpdf"];
-
-  for (const p of fixedPaths) {
-    if (fs.existsSync(p)) {
-      return p;
-    }
-  }
-
-  try {
-    const found = execSync("which qpdf", { encoding: "utf8" }).trim();
-    if (found) return found;
-  } catch (_) {}
-
-  return null;
-}
-
 // ================= BASIC ROUTES =================
 app.get("/", (req, res) => {
-  res.send("PDFNova backend running 🚀");
+  res.send("PDFNova backend running");
 });
 
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
     message: "API is working",
-  });
-});
-
-app.get("/api/qpdf-check", (req, res) => {
-  const qpdfPath = getQpdfPath();
-  res.json({
-    ok: !!qpdfPath,
-    path: qpdfPath || null,
   });
 });
 
@@ -123,11 +99,15 @@ app.post("/api/pdf-to-word", upload.single("file"), (req, res) => {
     );
     const scriptPath = path.resolve(__dirname, "convert_pdf_to_word.py");
 
+    console.log("PDF TO WORD INPUT:", inputPath);
+    console.log("PDF TO WORD OUTPUT:", outputPath);
+
     runPython([scriptPath, inputPath, outputPath], (error, stdout, stderr) => {
+      console.log("PYTHON STDOUT:", stdout);
+      console.log("PYTHON STDERR:", stderr);
+
       if (error) {
         console.error("PDF TO WORD ERROR:", error);
-        console.error("STDOUT:", stdout);
-        console.error("STDERR:", stderr);
         cleanupFiles([inputPath, outputPath]);
         return res
           .status(500)
@@ -153,170 +133,130 @@ app.post("/api/pdf-to-word", upload.single("file"), (req, res) => {
 });
 
 // ================= MERGE PDF =================
-app.post("/api/merge-pdf", upload.array("files", 20), (req, res) => {
+// Frontend must send multiple files using key: files
+app.post("/api/merge-pdf", upload.array("files", 20), async (req, res) => {
+  const uploadedPaths = req.files ? req.files.map((file) => file.path) : [];
+
   try {
     if (!req.files || req.files.length < 2) {
       return res.status(400).send("Please upload at least 2 PDF files.");
     }
 
-    const qpdfPath = getQpdfPath();
-    if (!qpdfPath) {
-      cleanupFiles(req.files.map((file) => file.path));
-      return res.status(500).send("qpdf not found on server.");
+    const mergedPdf = await PDFDocument.create();
+
+    for (const file of req.files) {
+      const pdfBytes = fs.readFileSync(file.path);
+      const pdf = await PDFDocument.load(pdfBytes);
+
+      const pageIndices = pdf.getPageIndices();
+      const copiedPages = await mergedPdf.copyPages(pdf, pageIndices);
+
+      copiedPages.forEach((page) => mergedPdf.addPage(page));
     }
 
+    const mergedBytes = await mergedPdf.save();
     const outputPath = path.resolve(outputDir, `merged-${Date.now()}.pdf`);
 
-    const args = ["--empty", "--pages"];
+    fs.writeFileSync(outputPath, mergedBytes);
 
-    req.files.forEach((file) => {
-      const inputPath = path.resolve(file.path);
-      args.push(inputPath, "1-z");
-    });
-
-    args.push("--", outputPath);
-
-    execFile(qpdfPath, args, (error, stdout, stderr) => {
-      if (error) {
-        console.error("MERGE ERROR:", error);
-        console.error("STDOUT:", stdout);
-        console.error("STDERR:", stderr);
-        cleanupFiles([...req.files.map((file) => file.path), outputPath]);
-        return res.status(500).send(stderr || "Merge failed.");
+    res.download(outputPath, "merged.pdf", (downloadErr) => {
+      if (downloadErr) {
+        console.error("DOWNLOAD ERROR:", downloadErr);
       }
-
-      if (!fs.existsSync(outputPath)) {
-        cleanupFiles([...req.files.map((file) => file.path), outputPath]);
-        return res.status(500).send("Merged PDF was not created.");
-      }
-
-      res.download(outputPath, "merged.pdf", (downloadErr) => {
-        if (downloadErr) {
-          console.error("DOWNLOAD ERROR:", downloadErr);
-        }
-        cleanupFiles([...req.files.map((file) => file.path), outputPath]);
-      });
+      cleanupFiles([...uploadedPaths, outputPath]);
     });
   } catch (err) {
-    console.error("SERVER ERROR:", err);
-    return res.status(500).send("Server error.");
-  }
-});
-
-// ================= COMPRESS PDF =================
-app.post("/api/compress-pdf", upload.single("file"), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).send("No file uploaded.");
-    }
-
-    const inputPath = path.resolve(req.file.path);
-    const outputPath = path.resolve(
-      outputDir,
-      `compressed-${req.file.filename}`
-    );
-
-    const qpdfPath = getQpdfPath();
-    if (!qpdfPath) {
-      cleanupFiles([inputPath]);
-      return res.status(500).send("qpdf not found on server.");
-    }
-
-    const args = [
-      "--stream-data=compress",
-      "--compression-level=9",
-      inputPath,
-      outputPath,
-    ];
-
-    execFile(qpdfPath, args, (error, stdout, stderr) => {
-      if (error) {
-        console.error("COMPRESS ERROR:", error);
-        console.error("STDOUT:", stdout);
-        console.error("STDERR:", stderr);
-        cleanupFiles([inputPath, outputPath]);
-        return res.status(500).send(stderr || "Compression failed.");
-      }
-
-      if (!fs.existsSync(outputPath)) {
-        cleanupFiles([inputPath, outputPath]);
-        return res.status(500).send("Compressed file was not created.");
-      }
-
-      res.download(outputPath, "compressed.pdf", (downloadErr) => {
-        if (downloadErr) {
-          console.error("DOWNLOAD ERROR:", downloadErr);
-        }
-        cleanupFiles([inputPath, outputPath]);
-      });
-    });
-  } catch (err) {
-    console.error("SERVER ERROR:", err);
-    return res.status(500).send("Server error.");
+    console.error("MERGE ERROR:", err);
+    cleanupFiles(uploadedPaths);
+    return res.status(500).send(err.message || "Failed to merge PDFs.");
   }
 });
 
 // ================= SPLIT PDF =================
-// Frontend should send:
-// file = PDF file
+// Frontend must send:
+// file = one PDF
 // pageRanges = like "1-2" or "3" or "4-6"
-app.post("/api/split-pdf", upload.single("file"), (req, res) => {
+app.post("/api/split-pdf", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).send("No file uploaded.");
     }
 
     const { pageRanges } = req.body;
+
     if (!pageRanges || !String(pageRanges).trim()) {
       cleanupFiles([req.file.path]);
       return res.status(400).send("Page range is required. Example: 1-2");
     }
 
     const inputPath = path.resolve(req.file.path);
-    const outputPath = path.resolve(
-      outputDir,
-      `split-${req.file.filename}`
-    );
+    const outputPath = path.resolve(outputDir, `split-${req.file.filename}`);
 
-    const qpdfPath = getQpdfPath();
-    if (!qpdfPath) {
-      cleanupFiles([inputPath]);
-      return res.status(500).send("qpdf not found on server.");
+    const pdfBytes = fs.readFileSync(inputPath);
+    const sourcePdf = await PDFDocument.load(pdfBytes);
+    const newPdf = await PDFDocument.create();
+
+    const totalPages = sourcePdf.getPageCount();
+    const ranges = String(pageRanges)
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    const selectedPages = [];
+
+    for (const range of ranges) {
+      if (range.includes("-")) {
+        const [startRaw, endRaw] = range.split("-");
+        const start = parseInt(startRaw, 10);
+        const end = parseInt(endRaw, 10);
+
+        if (
+          Number.isNaN(start) ||
+          Number.isNaN(end) ||
+          start < 1 ||
+          end < start ||
+          end > totalPages
+        ) {
+          cleanupFiles([inputPath]);
+          return res.status(400).send(`Invalid page range: ${range}`);
+        }
+
+        for (let i = start; i <= end; i++) {
+          selectedPages.push(i - 1);
+        }
+      } else {
+        const page = parseInt(range, 10);
+
+        if (Number.isNaN(page) || page < 1 || page > totalPages) {
+          cleanupFiles([inputPath]);
+          return res.status(400).send(`Invalid page number: ${range}`);
+        }
+
+        selectedPages.push(page - 1);
+      }
     }
 
-    const args = [
-      inputPath,
-      "--pages",
-      inputPath,
-      String(pageRanges).trim(),
-      "--",
-      outputPath,
-    ];
+    if (selectedPages.length === 0) {
+      cleanupFiles([inputPath]);
+      return res.status(400).send("No valid pages selected.");
+    }
 
-    execFile(qpdfPath, args, (error, stdout, stderr) => {
-      if (error) {
-        console.error("SPLIT ERROR:", error);
-        console.error("STDOUT:", stdout);
-        console.error("STDERR:", stderr);
-        cleanupFiles([inputPath, outputPath]);
-        return res.status(500).send(stderr || "Split failed.");
+    const copiedPages = await newPdf.copyPages(sourcePdf, selectedPages);
+    copiedPages.forEach((page) => newPdf.addPage(page));
+
+    const splitBytes = await newPdf.save();
+    fs.writeFileSync(outputPath, splitBytes);
+
+    res.download(outputPath, "split.pdf", (downloadErr) => {
+      if (downloadErr) {
+        console.error("DOWNLOAD ERROR:", downloadErr);
       }
-
-      if (!fs.existsSync(outputPath)) {
-        cleanupFiles([inputPath, outputPath]);
-        return res.status(500).send("Split PDF was not created.");
-      }
-
-      res.download(outputPath, "split.pdf", (downloadErr) => {
-        if (downloadErr) {
-          console.error("DOWNLOAD ERROR:", downloadErr);
-        }
-        cleanupFiles([inputPath, outputPath]);
-      });
+      cleanupFiles([inputPath, outputPath]);
     });
   } catch (err) {
-    console.error("SERVER ERROR:", err);
-    return res.status(500).send("Server error.");
+    console.error("SPLIT ERROR:", err);
+    cleanupFiles([req.file?.path]);
+    return res.status(500).send(err.message || "Failed to split PDF.");
   }
 });
 
