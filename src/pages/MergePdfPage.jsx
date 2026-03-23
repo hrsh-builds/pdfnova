@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FileText, Layers } from "lucide-react";
 import DropZone from "../components/DropZone";
-import { API_URL } from "../../vite.config";
+import { API_URL } from "../config";
 
 export default function MergePdfPage() {
   const [files, setFiles] = useState([]);
@@ -19,7 +19,9 @@ export default function MergePdfPage() {
       setMessage("Merging PDFs...");
 
       const formData = new FormData();
-      files.forEach((file) => formData.append("files", file));
+      files.forEach((file) => {
+        formData.append("files", file);
+      });
 
       const res = await fetch(`${API_URL}/api/merge-pdf`, {
         method: "POST",
@@ -28,7 +30,7 @@ export default function MergePdfPage() {
 
       if (!res.ok) {
         const errorText = await res.text();
-        throw new Error(errorText || "Merge failed.");
+        throw new Error(errorText || "Failed to merge PDFs.");
       }
 
       const blob = await res.blob();
@@ -57,27 +59,27 @@ export default function MergePdfPage() {
   };
 
   return (
-    <section className="px-3 py-8 sm:px-4 md:px-6 md:py-14 text-white">
+    <section className="px-3 py-8 text-white sm:px-4 md:px-6 md:py-14">
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 text-center md:mb-10">
           <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl">
             Merge PDF
           </h2>
           <p className="mt-3 text-sm text-white/65 sm:text-base">
-            Combine multiple PDF files into a single document.
+            Upload multiple PDF files and combine them into one document.
           </p>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-xl sm:p-6 md:p-8">
           <DropZone
             title="Drop PDF files here"
-            subtitle="Upload multiple PDF files"
+            subtitle="Drag & drop multiple PDF files or click below"
             buttonText="Select PDFs"
             accept="application/pdf"
             multiple={true}
             onFilesSelected={(selectedFiles) => {
               const onlyPdf = selectedFiles.filter(
-                (file) => file.type === "application/pdf"
+                (selectedFile) => selectedFile.type === "application/pdf"
               );
 
               if (onlyPdf.length > 0) {
@@ -94,21 +96,23 @@ export default function MergePdfPage() {
             <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
               <div className="mb-4 flex items-center gap-2">
                 <Layers className="h-5 w-5 text-cyan-400" />
-                <p className="text-sm text-white/80">
+                <p className="text-sm font-semibold text-white/90 sm:text-base">
                   {files.length} file(s) selected
                 </p>
               </div>
 
-              {/* File list */}
-              <div className="space-y-3 max-h-48 overflow-auto pr-1">
+              <div className="space-y-3">
                 {files.map((file, index) => (
                   <div
-                    key={index}
-                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3"
+                    key={`${file.name}-${index}`}
+                    className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3"
                   >
-                    <FileText className="h-5 w-5 text-cyan-400" />
+                    <div className="rounded-xl bg-cyan-500/10 p-2">
+                      <FileText className="h-5 w-5 text-cyan-400" />
+                    </div>
+
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-white/90">
+                      <p className="truncate text-sm font-medium text-white/90 sm:text-base">
                         {file.name}
                       </p>
                       <p className="text-xs text-white/50">
@@ -119,7 +123,6 @@ export default function MergePdfPage() {
                 ))}
               </div>
 
-              {/* Buttons */}
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
                 <button
                   onClick={handleMerge}

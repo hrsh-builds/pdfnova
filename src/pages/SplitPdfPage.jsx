@@ -5,7 +5,7 @@ import { API_URL } from "../config";
 
 export default function SplitPdfPage() {
   const [file, setFile] = useState(null);
-  const [range, setRange] = useState("");
+  const [pageRange, setPageRange] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -15,8 +15,8 @@ export default function SplitPdfPage() {
       return;
     }
 
-    if (!range.trim()) {
-      setMessage("Please enter page range (e.g. 1-3).");
+    if (!pageRange.trim()) {
+      setMessage("Page range is required. Example: 1-2");
       return;
     }
 
@@ -26,7 +26,7 @@ export default function SplitPdfPage() {
 
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("range", range);
+      formData.append("pageRanges", pageRange);
 
       const res = await fetch(`${API_URL}/api/split-pdf`, {
         method: "POST",
@@ -35,7 +35,7 @@ export default function SplitPdfPage() {
 
       if (!res.ok) {
         const errorText = await res.text();
-        throw new Error(errorText || "Split failed.");
+        throw new Error(errorText || "Failed to split PDF.");
       }
 
       const blob = await res.blob();
@@ -60,32 +60,32 @@ export default function SplitPdfPage() {
 
   const handleReset = () => {
     setFile(null);
-    setRange("");
+    setPageRange("");
     setMessage("");
   };
 
   return (
-    <section className="px-3 py-8 sm:px-4 md:px-6 md:py-14 text-white">
+    <section className="px-3 py-8 text-white sm:px-4 md:px-6 md:py-14">
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 text-center md:mb-10">
           <h2 className="text-2xl font-bold sm:text-3xl md:text-4xl">
             Split PDF
           </h2>
           <p className="mt-3 text-sm text-white/65 sm:text-base">
-            Extract selected pages from your PDF file.
+            Upload a PDF and extract selected pages into a new PDF.
           </p>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-xl sm:p-6 md:p-8">
           <DropZone
             title="Drop PDF file here"
-            subtitle="Upload one PDF file"
+            subtitle="Drag & drop one PDF file or click below"
             buttonText="Select PDF"
             accept="application/pdf"
             multiple={false}
             onFilesSelected={(selectedFiles) => {
               const onlyPdf = selectedFiles.filter(
-                (file) => file.type === "application/pdf"
+                (selectedFile) => selectedFile.type === "application/pdf"
               );
 
               if (onlyPdf.length > 0) {
@@ -115,22 +115,22 @@ export default function SplitPdfPage() {
                 </div>
               </div>
 
-              {/* Page Range Input */}
               <div className="mt-5">
-                <label className="block text-sm font-medium text-white/80 mb-2">
+                <label className="mb-2 block text-sm font-medium text-white/80">
                   Page Range
                 </label>
-
-                <input
-                  type="text"
-                  value={range}
-                  onChange={(e) => setRange(e.target.value)}
-                  placeholder="e.g. 1-3 or 2-5"
-                  className="w-full rounded-2xl border border-white/10 bg-[#0f172a] px-4 py-3 text-white outline-none placeholder:text-white/40 focus:border-cyan-400"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={pageRange}
+                    onChange={(e) => setPageRange(e.target.value)}
+                    placeholder="Example: 1-2 or 3 or 1,3,5"
+                    className="w-full rounded-2xl border border-white/10 bg-[#0f172a] px-4 py-3 text-white outline-none placeholder:text-white/40 focus:border-cyan-400"
+                  />
+                  <Scissors className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-cyan-400/70" />
+                </div>
               </div>
 
-              {/* Buttons */}
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
                 <button
                   onClick={handleSplit}
