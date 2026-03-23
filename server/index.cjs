@@ -106,31 +106,37 @@ app.post("/api/pdf-to-word", upload.single("file"), (req, res) => {
 
     console.log("PDF TO WORD INPUT:", inputPath);
     console.log("PDF TO WORD OUTPUT:", outputPath);
+    console.log("SCRIPT PATH:", scriptPath);
 
-    runPython([scriptPath, inputPath, outputPath], (error, stdout, stderr) => {
-      console.log("PYTHON STDOUT:", stdout);
-      console.log("PYTHON STDERR:", stderr);
+    execFile(
+      "python3",
+      [scriptPath, inputPath, outputPath],
+      { windowsHide: true },
+      (error, stdout, stderr) => {
+        console.log("PYTHON STDOUT:", stdout);
+        console.log("PYTHON STDERR:", stderr);
 
-      if (error) {
-        console.error("PDF TO WORD ERROR:", error);
-        cleanupFiles([inputPath, outputPath]);
-        return res
-          .status(500)
-          .send(stderr || stdout || error.message || "Failed to convert PDF to Word.");
-      }
-
-      if (!fs.existsSync(outputPath)) {
-        cleanupFiles([inputPath, outputPath]);
-        return res.status(500).send("DOCX file was not created.");
-      }
-
-      res.download(outputPath, "converted.docx", (downloadErr) => {
-        if (downloadErr) {
-          console.error("DOWNLOAD ERROR:", downloadErr);
+        if (error) {
+          console.error("PDF TO WORD ERROR:", error);
+          cleanupFiles([inputPath, outputPath]);
+          return res
+            .status(500)
+            .send(stderr || stdout || error.message || "Failed to convert PDF to Word.");
         }
-        cleanupFiles([inputPath, outputPath]);
-      });
-    });
+
+        if (!fs.existsSync(outputPath)) {
+          cleanupFiles([inputPath, outputPath]);
+          return res.status(500).send("DOCX file was not created.");
+        }
+
+        res.download(outputPath, "converted.docx", (downloadErr) => {
+          if (downloadErr) {
+            console.error("DOWNLOAD ERROR:", downloadErr);
+          }
+          cleanupFiles([inputPath, outputPath]);
+        });
+      }
+    );
   } catch (err) {
     console.error("SERVER ERROR:", err);
     return res.status(500).send(err.message || "Server error.");
