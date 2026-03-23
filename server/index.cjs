@@ -121,6 +121,101 @@ app.post("/api/pdf-to-word", upload.single("file"), (req, res) => {
   }
 });
 
+// ===============compress pdf================
+app.post("/api/compress-pdf", upload.single("file"), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).send("No file uploaded.");
+    }
+
+    const inputPath = path.resolve(req.file.path);
+    const outputPath = path.resolve(
+      outputDir,
+      `compressed-${req.file.filename}`
+    );
+
+    const qpdfPath = getQpdfPath();
+
+    if (!qpdfPath) {
+      cleanupFiles([inputPath]);
+      return res.status(500).send("qpdf not found on server.");
+    }
+
+    const args = [
+      "--stream-data=compress",
+      "--compression-level=9",
+      inputPath,
+      outputPath,
+    ];
+
+    execFile(qpdfPath, args, (error, stdout, stderr) => {
+      if (error) {
+        console.error("COMPRESS ERROR:", error);
+        cleanupFiles([inputPath, outputPath]);
+        return res.status(500).send(stderr || "Compression failed.");
+      }
+
+      if (!fs.existsSync(outputPath)) {
+        cleanupFiles([inputPath, outputPath]);
+        return res.status(500).send("Compressed file not created.");
+      }
+
+      res.download(outputPath, "compressed.pdf", () => {
+        cleanupFiles([inputPath, outputPath]);
+      });
+    });
+  } catch (err) {
+    console.error("SERVER ERROR:", err);
+    res.status(500).send("Server error.");
+  }
+});
+
+// =================split pdf===================
+app.post("/api/split-pdf", upload.single("file"), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).send("No file uploaded.");
+    }
+
+    const inputPath = path.resolve(req.file.path);
+    const outputPath = path.resolve(
+      outputDir,
+      `split-${req.file.filename}`
+    );
+
+    const qpdfPath = getQpdfPath();
+
+    if (!qpdfPath) {
+      cleanupFiles([inputPath]);
+      return res.status(500).send("qpdf not found.");
+    }
+
+    const args = [
+      inputPath,
+      "--pages",
+      inputPath,
+      "1-z",
+      "--",
+      outputPath,
+    ];
+
+    execFile(qpdfPath, args, (error) => {
+      if (error) {
+        console.error("SPLIT ERROR:", error);
+        cleanupFiles([inputPath, outputPath]);
+        return res.status(500).send("Split failed.");
+      }
+
+      res.download(outputPath, "split.pdf", () => {
+        cleanupFiles([inputPath, outputPath]);
+      });
+    });
+  } catch (err) {
+    console.error("SERVER ERROR:", err);
+    res.status(500).send("Server error.");
+  }
+});
+
 // ================= PROTECT PDF =================
 app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
   return res
