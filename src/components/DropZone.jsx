@@ -22,7 +22,7 @@ export default function DropZone({
 
   return (
     <div
-      className={`rounded-2xl border-2 border-dashed p-6 text-center transition md:p-8 ${
+      className={`rounded-2xl border-2 border-dashed p-5 text-center transition md:p-8 ${
         dragActive
           ? "border-cyan-400 bg-cyan-400/10"
           : "border-cyan-400/40 bg-black/20"
@@ -42,8 +42,8 @@ export default function DropZone({
       }}
     >
       <motion.div
-        animate={dragActive ? { scale: [1, 1.08, 1] } : { y: [0, -4, 0] }}
-        transition={{ repeat: Infinity, duration: 2 }}
+        animate={dragActive ? { scale: [1, 1.08, 1] } : {}}
+        transition={{ repeat: Infinity, duration: 1.2 }}
       >
         <UploadCloud className="mx-auto mb-4 h-10 w-10 text-cyan-400 md:h-12 md:w-12" />
       </motion.div>
@@ -65,7 +65,10 @@ export default function DropZone({
         accept={accept}
         multiple={multiple}
         className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
+        onChange={(e) => {
+          handleFiles(e.target.files);
+          e.target.value = "";
+        }}
       />
     </div>
   );

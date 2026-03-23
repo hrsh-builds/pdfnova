@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Layers } from "lucide-react";
+import { FileText, Layers, X } from "lucide-react";
 import DropZone from "../components/DropZone";
 import { API_URL } from "../config";
 
@@ -58,6 +58,42 @@ export default function MergePdfPage() {
     setMessage("");
   };
 
+  const handleRemoveFile = (indexToRemove) => {
+    setFiles((prevFiles) =>
+      prevFiles.filter((_, index) => index !== indexToRemove)
+    );
+  };
+
+  const handleSelectedFiles = (selectedFiles) => {
+    const onlyPdf = selectedFiles.filter(
+      (selectedFile) => selectedFile.type === "application/pdf"
+    );
+
+    if (onlyPdf.length === 0) {
+      setMessage("Only PDF files are allowed.");
+      return;
+    }
+
+    setFiles((prevFiles) => {
+      const combined = [...prevFiles, ...onlyPdf];
+
+      const uniqueFiles = combined.filter(
+        (file, index, self) =>
+          index ===
+          self.findIndex(
+            (f) =>
+              f.name === file.name &&
+              f.size === file.size &&
+              f.lastModified === file.lastModified
+          )
+      );
+
+      return uniqueFiles;
+    });
+
+    setMessage("");
+  };
+
   return (
     <section className="px-3 py-8 text-white sm:px-4 md:px-6 md:py-14">
       <div className="mx-auto max-w-5xl">
@@ -77,19 +113,7 @@ export default function MergePdfPage() {
             buttonText="Select PDFs"
             accept="application/pdf"
             multiple={true}
-            onFilesSelected={(selectedFiles) => {
-              const onlyPdf = selectedFiles.filter(
-                (selectedFile) => selectedFile.type === "application/pdf"
-              );
-
-              if (onlyPdf.length > 0) {
-                setFiles(onlyPdf);
-                setMessage("");
-              } else {
-                setFiles([]);
-                setMessage("Only PDF files are allowed.");
-              }
-            }}
+            onFilesSelected={handleSelectedFiles}
           />
 
           {files.length > 0 && (
@@ -104,21 +128,31 @@ export default function MergePdfPage() {
               <div className="space-y-3">
                 {files.map((file, index) => (
                   <div
-                    key={`${file.name}-${index}`}
-                    className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3"
+                    key={`${file.name}-${file.lastModified}-${index}`}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-3"
                   >
-                    <div className="rounded-xl bg-cyan-500/10 p-2">
-                      <FileText className="h-5 w-5 text-cyan-400" />
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="rounded-xl bg-cyan-500/10 p-2">
+                        <FileText className="h-5 w-5 text-cyan-400" />
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-white/90 sm:text-base">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-white/50">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-white/90 sm:text-base">
-                        {file.name}
-                      </p>
-                      <p className="text-xs text-white/50">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFile(index)}
+                      className="rounded-full p-2 text-white/60 hover:bg-white/10 hover:text-white"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
                 ))}
               </div>
