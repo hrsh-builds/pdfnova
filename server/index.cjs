@@ -78,10 +78,15 @@ app.get("/", (req, res) => {
   res.send("PDFNova backend running");
 });
 
-app.get("/api/health", (req, res) => {
+app.get("/api/python-check", (req, res) => {
+  const commands =
+    process.platform === "win32"
+      ? ["py", "python"]
+      : ["python3", "python"];
+
   res.json({
-    ok: true,
-    message: "API is working",
+    platform: process.platform,
+    commands,
   });
 });
 
