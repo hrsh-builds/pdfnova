@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FileText } from "lucide-react";
 import DropZone from "../components/DropZone";
-import { API_URL } from "../../vite.config";
+import { API_URL } from "../config";
 
 export default function PdfToWordPage() {
   const [file, setFile] = useState(null);
