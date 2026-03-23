@@ -35,7 +35,7 @@ export default function Layout() {
             <NavLink to="/merge-pdf" className={navItem}>Merge</NavLink>
             <NavLink to="/split-pdf" className={navItem}>Split</NavLink>
             <NavLink to="/compress-pdf" className={navItem}>Compress</NavLink>
-            <NavLink to="/pdf-to-word" className={navItem}>Word</NavLink>
+            
             <NavLink to="/protect-pdf" className={navItem}>Protect</NavLink>
           </nav>
 
@@ -70,7 +70,7 @@ export default function Layout() {
                 <NavLink onClick={() => setMenuOpen(false)} to="/split-pdf" className={navItem}>Split PDF</NavLink>
                 <NavLink onClick={() => setMenuOpen(false)} to="/compress-pdf" className={navItem}>Compress PDF</NavLink>
                 <NavLink onClick={() => setMenuOpen(false)} to="/jpg-to-pdf" className={navItem}>JPG to PDF</NavLink>
-                <NavLink onClick={() => setMenuOpen(false)} to="/pdf-to-word" className={navItem}>PDF to Word</NavLink>
+        
                 <NavLink onClick={() => setMenuOpen(false)} to="/protect-pdf" className={navItem}>Protect PDF</NavLink>
                 <NavLink onClick={() => setMenuOpen(false)} to="/privacy-policy" className={navItem}>Privacy Policy</NavLink>
                 <NavLink onClick={() => setMenuOpen(false)} to="/terms" className={navItem}>Terms</NavLink>

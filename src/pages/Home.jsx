@@ -41,12 +41,7 @@ const tools = [
     icon: FileImage,
     path: "/pdf-to-jpg",
   },
-  {
-    title: "PDF to Word",
-    desc: "Convert PDF files into editable Word documents.",
-    icon: FileText,
-    path: "/pdf-to-word",
-  },
+ 
   {
     title: "JPG to PDF",
     desc: "Turn images into a neat PDF document.",
@@ -226,7 +221,7 @@ export default function Home() {
                   <option value="/split-pdf">Split PDF</option>
                   <option value="/compress-pdf">Compress PDF</option>
                   <option value="/jpg-to-pdf">JPG to PDF</option>
-                  <option value="/pdf-to-word">PDF to Word</option>
+                  
                   <option value="/pdf-to-jpg">PDF to JPG</option>
                   <option value="/protect-pdf">Protect PDF</option>
                 </select>
