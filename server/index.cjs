@@ -73,6 +73,54 @@ app.get("/api/qpdf-check", (req, res) => {
   });
 });
 
+// ========pdf to word==============
+app.post("/api/pdf-to-word", upload.single("file"), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).send("No file uploaded.");
+    }
+
+    const inputPath = path.resolve(req.file.path);
+    const outputPath = path.resolve(
+      outputDir,
+      `${path.parse(req.file.filename).name}.docx`
+    );
+    const scriptPath = path.resolve(__dirname, "convert_pdf_to_word.py");
+
+    console.log("PDF TO WORD INPUT:", inputPath);
+    console.log("PDF TO WORD OUTPUT:", outputPath);
+    console.log("SCRIPT PATH:", scriptPath);
+
+    runPython([scriptPath, inputPath, outputPath], (error, stdout, stderr) => {
+      console.log("PYTHON STDOUT:", stdout);
+      console.log("PYTHON STDERR:", stderr);
+
+      if (error) {
+        console.error("PDF TO WORD ERROR:", error);
+        cleanupFiles([inputPath, outputPath]);
+        return res
+          .status(500)
+          .send(stderr || stdout || error.message || "Failed to convert PDF to Word.");
+      }
+
+      if (!fs.existsSync(outputPath)) {
+        cleanupFiles([inputPath, outputPath]);
+        return res.status(500).send("DOCX file was not created.");
+      }
+
+      res.download(outputPath, "converted.docx", (downloadErr) => {
+        if (downloadErr) {
+          console.error("DOWNLOAD ERROR:", downloadErr);
+        }
+        cleanupFiles([inputPath, outputPath]);
+      });
+    });
+  } catch (err) {
+    console.error("SERVER ERROR:", err);
+    return res.status(500).send(err.message || "Server error");
+  }
+});
+
 // ================= PROTECT PDF =================
 app.post("/api/protect-pdf", upload.single("file"), (req, res) => {
   return res
